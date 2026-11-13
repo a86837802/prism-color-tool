@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.bak
+*.spec
+
+# 构建产物
+build/
+dist/
+.build/
+.diag/
+release/
+发布/
+
+# 用户自己的配置（首次运行自动生成）
+palettes_v1.txt
+settings_v1.txt
+
+# 本地临时数据
+.tmp/
+输出/
+samples/
+tests/_fixture/
+
+# 测试素材
+*.pptx
+*.pptm
+*.prism
+*.pzfx
