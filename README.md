@@ -53,7 +53,7 @@ python src/prism_color_tool_v1.py
 
 ## 兼容性
 
-Windows 专用，不支持 macOS。Prism 7–11 均可，中英文版都认——工具操作的是 Windows 系统颜色对话框，不是 Prism 自己画的界面。
+Windows 专用，不支持 macOS。Prism 7–11 均可，中英文版都可以。
 
 ## 许可证
 
