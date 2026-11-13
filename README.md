@@ -55,12 +55,6 @@ python src/prism_color_tool_v1.py
 
 Windows 专用，不支持 macOS。Prism 7–11 均可，中英文版都认——工具操作的是 Windows 系统颜色对话框，不是 Prism 自己画的界面。
 
-## 文档
-
-- [设计方案](docs/设计方案.md)
-- [技术细节](docs/技术细节.md)
-- [PPT 嵌入对象结构分析](docs/PPT嵌入对象结构分析.md)
-
 ## 许可证
 
 MIT
