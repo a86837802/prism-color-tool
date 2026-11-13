@@ -3,6 +3,7 @@
 
 import ctypes
 import sys
+import time
 import tkinter as tk
 
 import win32api
@@ -107,18 +108,27 @@ class Panel:
         self._drag_offset = 0      # 拖动滑块时的抓取偏移
 
         self.win = tk.Toplevel(tool.root)
-        self.win.withdraw()
-        self.win.overrideredirect(True)
-        self.win.configure(bg=BORDER)
+        # 初始化任何一步抛异常，都必须把已创建的窗口销毁。
+        # 否则 self.panel 仍是 None，下一轮轮询又建一个，会堆出多个孤儿面板。
+        try:
+            self.win.withdraw()
+            self.win.overrideredirect(True)
+            self.win.configure(bg=BORDER)
 
-        self._build()
-        self._place_near_dialog()
-        self.win.deiconify()
-        self.win.update_idletasks()
-        set_noactivate(self.win, True)
-        if not self.attach_owner():
-            self.win.attributes("-topmost", True)
-        self.refresh_from_dialog()
+            self._build()
+            self._place_near_dialog()
+            self.win.deiconify()
+            self.win.update_idletasks()
+            set_noactivate(self.win, True)
+            if not self.attach_owner():
+                self.win.attributes("-topmost", True)
+            self.refresh_from_dialog()
+        except Exception:
+            try:
+                self.win.destroy()
+            except Exception:
+                pass
+            raise
 
     def attach_owner(self):
         """把面板设为颜色对话框的从属窗口，层级跟着对话框走。"""
@@ -752,6 +762,7 @@ class Tool:
         self.hdlg = 0
         self.tray = None
         self._quit_requested = False
+        self._retry_after = 0.0   # 面板创建连续失败时的冷却时间戳
 
     def request_quit(self):
         """由托盘线程调用。只设标志，真正的退出交给主线程执行。"""
@@ -780,6 +791,13 @@ class Tool:
         if self._quit_requested:
             self.quit_app()
             return
+
+        # 创建失败后冷却 5 秒再试。没有这个冷却，一旦某台机器上初始化出错，
+        # 每 250 毫秒就会建一个窗口又销毁，表现为面板疯狂闪现或堆叠。
+        if time.time() < self._retry_after:
+            self.root.after(POLL_MS, self.poll)
+            return
+
         try:
             if self.panel is not None:
                 import win32gui
@@ -793,7 +811,13 @@ class Tool:
                 hdlg = dio.find_color_dialog()
                 if hdlg:
                     self.hdlg = hdlg
-                    self.panel = Panel(self, hdlg)
+                    try:
+                        self.panel = Panel(self, hdlg)
+                    except Exception:
+                        self.panel = None
+                        self.hdlg = 0
+                        self._retry_after = time.time() + 5.0
+                        raise
         except Exception:
             self.hide_panel()
         self.root.after(POLL_MS, self.poll)

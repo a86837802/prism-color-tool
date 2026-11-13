@@ -34,10 +34,11 @@ import win32process
 
 # ============ 变量区 ============
 DIALOG_CLASS = "#32770"
-# 标题关键词只是快速路径。英文版是 "Choose Color"，中文版是「选择颜色」。
-# 真正可靠的判定是 _has_rgb_edits：能取到 706/707/708 三个 Edit 控件，
-# 就说明这是颜色对话框，与界面语言无关。
-TITLE_KEYWORDS = ("choose color", "选择颜色")
+# 标题关键词。用"包含"匹配而非精确匹配，覆盖各语言版本：
+#   英文 "Choose Color" / "Colors"
+#   中文 "选择颜色" / "選擇顏色"
+# 只要标题里出现 color / colour / 颜色 / 顏色 就认。
+TITLE_HINTS = ("color", "colour", "颜色", "顏色")
 PRISM_EXE_KEYWORD = "prism"
 
 ID_RED = 706
@@ -90,22 +91,21 @@ def get_process_name(pid):
 
 # ============ 查找对话框 ============
 
+def title_matches(title):
+    """标题里是否含颜色相关词。宽松匹配，兼容多语言版本。"""
+    lowered = title.lower()
+    return any(hint in lowered for hint in TITLE_HINTS)
+
+
 def has_rgb_edits(hwnd):
     """
-    判定一个对话框是不是颜色选择对话框，依据是它内部有没有
-    R/G/B 三个 Edit 控件（dlgs.h 的 706/707/708）。
-    这条判据不依赖界面语言，中文版、英文版、其他语言版都成立。
-    Prism 的 Format Graph 等对话框虽然也是 #32770，但取不到这三个控件。
+    兜底判定：窗口里能否取到 706/707/708 三个控件。
+    注意这里**不检查控件类名**——早期版本要求必须是 Edit，
+    结果在 Win11 上因类名差异而误判。只要这三个 ID 存在就认定。
     """
     for cid in (ID_RED, ID_GREEN, ID_BLUE):
         try:
-            child = win32gui.GetDlgItem(hwnd, cid)
-        except Exception:
-            return False
-        if not child:
-            return False
-        try:
-            if win32gui.GetClassName(child) != "Edit":
+            if not win32gui.GetDlgItem(hwnd, cid):
                 return False
         except Exception:
             return False
@@ -113,17 +113,17 @@ def has_rgb_edits(hwnd):
 
 
 def find_color_dialogs():
-    """返回所有颜色对话框句柄。先看标题，再按控件结构兜底。"""
+    """返回所有颜色对话框句柄。标题优先，控件结构兜底。"""
     hits = []
 
     def callback(hwnd, _):
         try:
             if win32gui.GetClassName(hwnd) != DIALOG_CLASS:
                 return True
-            title = win32gui.GetWindowText(hwnd).lower()
+            title = win32gui.GetWindowText(hwnd)
         except Exception:
             return True
-        if any(keyword in title for keyword in TITLE_KEYWORDS) or has_rgb_edits(hwnd):
+        if title_matches(title) or has_rgb_edits(hwnd):
             hits.append(hwnd)
         return True
 
