@@ -39,7 +39,7 @@ Format Graph → 颜色下拉 → More Colors → 先点一个基本颜色 → �
 
 ### 方式一：直接运行 exe（推荐给使用者）
 
-1. 下载 `PrismColorTool.exe`
+1. 下载 [`PrismColorTool.exe`](https://github.com/a86837802/prism-color-tool/releases/latest/download/PrismColorTool.exe)
 2. 双击运行，右下角托盘区会出现图标
 3. 在 Prism 里打开任意颜色对话框，面板自动出现在旁边
 4. 退出：右键托盘图标 → 退出
