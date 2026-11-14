@@ -325,6 +325,7 @@ class Panel:
             self._add_palette_block(self.inner, palette["name"],
                                     palette["colors"], removable=True,
                                     apply_alpha=True)
+        self._add_new_palette_button(self.inner)
         self._add_gradient_block(self.inner)
         # 滚轮事件不冒泡，创建完控件后统一递归绑定
         self._bind_wheel_tree(self.inner)
@@ -438,6 +439,72 @@ class Panel:
         self._place_near_dialog()
 
     # ---------- 渐变 ----------
+
+    def _add_new_palette_button(self, parent):
+        """
+        色板列表下方的"新建色板"入口。
+        点击后在原位展开一个输入行，而不是弹系统对话框——
+        simpledialog 是白底系统样式，和深色面板格格不入。
+        """
+        self.new_wrap = tk.Frame(parent, bg=BG)
+        self.new_wrap.pack(fill="x", pady=(10, 0))
+
+        self.new_btn = tk.Label(self.new_wrap, text="＋ 新建色板", bg=BG,
+                                fg=FG_ACCENT, font=("Microsoft YaHei UI", 8),
+                                cursor="hand2", anchor="w")
+        self.new_btn.pack(fill="x")
+        self.new_btn.bind("<Button-1>", lambda e: self._show_new_palette_row())
+
+        self.new_row = tk.Frame(self.new_wrap, bg=BG)
+        self.new_entry = tk.Entry(self.new_row, bg=BG_INPUT, fg=FG,
+                                  relief="flat", insertbackground=FG,
+                                  font=("Microsoft YaHei UI", 8))
+        self.new_entry.pack(side="left", fill="x", expand=True, ipady=3)
+        self.new_entry.bind("<Return>", lambda e: self._confirm_new_palette())
+        self.new_entry.bind("<Escape>", lambda e: self._cancel_new_palette())
+
+        ok = tk.Label(self.new_row, text="确定", bg="#3C3C3C", fg=FG, padx=6,
+                      font=("Microsoft YaHei UI", 8), cursor="hand2")
+        ok.pack(side="left", padx=(4, 0))
+        ok.bind("<Button-1>", lambda e: self._confirm_new_palette())
+
+        cancel = tk.Label(self.new_row, text="取消", bg=BG, fg=FG_SUB, padx=4,
+                          font=("Microsoft YaHei UI", 8), cursor="hand2")
+        cancel.pack(side="left")
+        cancel.bind("<Button-1>", lambda e: self._cancel_new_palette())
+
+    def _show_new_palette_row(self):
+        self.new_btn.pack_forget()
+        self.new_row.pack(fill="x")
+        self.new_entry.delete(0, "end")
+        set_noactivate(self.win, False)
+        self.new_entry.focus_set()
+        self.inner.update_idletasks()
+        self._sync_scroll()
+        self._place_near_dialog()
+
+    def _cancel_new_palette(self):
+        self.new_row.pack_forget()
+        self.new_btn.pack(fill="x")
+        set_noactivate(self.win, True)
+        self.inner.update_idletasks()
+        self._sync_scroll()
+        self._place_near_dialog()
+
+    def _confirm_new_palette(self):
+        name = self.new_entry.get().strip()
+        if not name:
+            self._cancel_new_palette()
+            return
+        created, _ = st.create_palette(name)
+        if created:
+            set_noactivate(self.win, True)
+            self.status.config(text="已新建「%s」，点它右边的 + 往里加色" % name)
+            self._reload_palettes()
+        else:
+            self.status.config(text="「%s」已存在，换个名字" % name)
+            self.new_entry.select_range(0, "end")
+            self.new_entry.focus_set()
 
     def _add_gradient_block(self, parent):
         divider = tk.Frame(parent, bg=BORDER, height=1)

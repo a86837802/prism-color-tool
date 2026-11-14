@@ -170,6 +170,22 @@ def save_palettes(palettes):
     CONFIG_FILE.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
+def create_palette(name):
+    """
+    新建一个空色板，追加到列表末尾。
+    返回 (是否创建成功, 当前色板列表)。重名或名称为空时返回 False。
+    """
+    name = (name or "").strip()
+    if not name:
+        return False, load_palettes()
+    palettes = load_palettes()
+    if any(palette["name"] == name for palette in palettes):
+        return False, palettes
+    palettes.append({"name": name, "colors": []})
+    save_palettes(palettes)
+    return True, palettes
+
+
 def add_color(hex_value, palette_name=DEFAULT_PALETTE_NAME):
     """
     把颜色加入指定色板，色板不存在则创建在末尾。
