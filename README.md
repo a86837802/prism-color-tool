@@ -15,7 +15,7 @@ Windows 专用，适用于 Prism 7–11。
 
 ## 下载使用
 
-[下载 PrismColorTool.exe](https://github.com/a86837802/prism-color-tool/releases/latest/download/PrismColorTool.exe)
+[下载 PrismColorTool.exe](https://github.com/Jz-Cheng/prism-color-tool/releases/latest/download/PrismColorTool.exe)
 
 双击运行，托盘出现图标，面板会在打开 Prism 颜色对话框时自动出现。退出：右键托盘图标 → 退出。
 
