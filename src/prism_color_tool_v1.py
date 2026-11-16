@@ -106,6 +106,9 @@ class Panel:
         self._scroll_last = 1.0    # 自绘滚动条：可见区域终点比例
         self._thumb_box = None     # 滑块当前的 (top, bottom)
         self._drag_offset = 0      # 拖动滑块时的抓取偏移
+        self._status_text = None   # 状态栏上次的文字，相同就不重设
+        self._last_geom = None     # 上次设置的窗口几何串，相同就不重设
+        self._preview_hex = None   # 预览块上次的颜色，相同就不重设
 
         self.win = tk.Toplevel(tool.root)
         # 初始化任何一步抛异常，都必须把已创建的窗口销毁。
@@ -425,10 +428,12 @@ class Panel:
         alpha = self.last_alpha or 0
         item = "%s@%d" % (hex_value, alpha) if alpha else hex_value
         added, _ = st.add_color(item, palette_name)
-        self._reload_palettes()
-        self.status.config(
-            text="已加入「%s」：%s" % (palette_name, item) if added
-            else "「%s」里已有该颜色" % palette_name)
+        if added:
+            # 只有真的加进去了才重建色板区，否则整个滚动区白闪一次
+            self._reload_palettes()
+            self.status.config(text="已加入「%s」：%s" % (palette_name, item))
+        else:
+            self.status.config(text="「%s」里已有该颜色" % palette_name)
 
     def _remove_color(self, hex_value):
         removed, _ = st.remove_color(hex_value)
@@ -639,25 +644,25 @@ class Panel:
         self._draw_thumb()
 
     def _draw_thumb(self):
-        self.scroll_track.delete("all")
+        """按可见区比例画滑块。位置没变就不重画，避免每帧 delete+create。"""
         height = self.scroll_track.winfo_height()
-        if height <= 4:
-            self._thumb_box = None
+        box = None
+        if height > 4 and self._scroll_last - self._scroll_first < 0.999:
+            top = self._scroll_first * height
+            bottom = self._scroll_last * height
+            if bottom - top < 20:        # 滑块太短不好抓，给个下限
+                center = (top + bottom) / 2
+                top = max(0, center - 10)
+                bottom = min(height, top + 20)
+                top = max(0, bottom - 20)
+            box = (round(top, 1), round(bottom, 1))
+        if box == self._thumb_box:
             return
-        # 内容装得下就不画滑块
-        if self._scroll_last - self._scroll_first >= 0.999:
-            self._thumb_box = None
-            return
-        top = self._scroll_first * height
-        bottom = self._scroll_last * height
-        if bottom - top < 20:            # 滑块太短不好抓，给个下限
-            center = (top + bottom) / 2
-            top = max(0, center - 10)
-            bottom = min(height, top + 20)
-            top = max(0, bottom - 20)
-        self._thumb_box = (top, bottom)
-        self.scroll_track.create_rectangle(1, top, 5, bottom,
-                                           fill="#5C5C5C", outline="")
+        self._thumb_box = box
+        self.scroll_track.delete("all")
+        if box:
+            self.scroll_track.create_rectangle(1, box[0], 5, box[1],
+                                               fill="#5C5C5C", outline="")
 
     def _on_track_press(self, event):
         if self._thumb_box and self._thumb_box[0] <= event.y <= self._thumb_box[1]:
@@ -743,7 +748,11 @@ class Panel:
         y = top
         if y + height > screen_h:
             y = max(8, screen_h - height - 40)
-        self.win.geometry("%dx%d+%d+%d" % (width, height, x, y))
+        # 几何串相同就不重设，否则 tk 会把整个窗口重排重绘
+        geometry = "%dx%d+%d+%d" % (width, height, x, y)
+        if geometry != self._last_geom:
+            self._last_geom = geometry
+            self.win.geometry(geometry)
 
     # ---------- 交互 ----------
 
@@ -785,10 +794,13 @@ class Panel:
         self._refresh_alpha_text()
 
     def _set_preview(self, rgb):
-        self.preview.configure(bg=cc.rgb_to_hex(*rgb))
+        hex_value = cc.rgb_to_hex(*rgb)
+        if hex_value != self._preview_hex:
+            self._preview_hex = hex_value
+            self.preview.configure(bg=hex_value)
 
     def _refresh_alpha_text(self):
-        """透明度与当前颜色分两条状态显示，互不覆盖。"""
+        """透明度与当前颜色分两条状态显示，互不覆盖。文字没变就不重绘。"""
         parts = []
         if self.last_rgb:
             parts.append(cc.rgb_to_hex(*self.last_rgb))
@@ -797,7 +809,10 @@ class Panel:
                          % (self.last_alpha, 100 - self.last_alpha))
             if self.last_alpha > 0:
                 parts.append("颜色会被稀释")
-        self.status.config(text="　".join(parts))
+        text = "　".join(parts)
+        if text != self._status_text:
+            self._status_text = text
+            self.status.config(text=text)
 
     def refresh_from_dialog(self):
         """首次显示时调用一次，把对话框当前状态搬过来。"""
@@ -814,8 +829,10 @@ class Panel:
             self.last_rgb = rgb
             self._set_preview(rgb)
             if not self._typing:
-                self.entry.delete(0, "end")
-                self.entry.insert(0, cc.rgb_to_hex(*rgb))
+                text = cc.rgb_to_hex(*rgb)
+                if self.entry.get() != text:
+                    self.entry.delete(0, "end")
+                    self.entry.insert(0, text)
             self._refresh_alpha_text()
 
         alpha = dio.read_transparency(self.hdlg)
