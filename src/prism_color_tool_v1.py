@@ -321,10 +321,10 @@ class Panel:
                             font=("Microsoft YaHei UI", 8),
                             anchor="w", justify="left")
             hint.pack(fill="x", pady=(8, 0))
-        for palette in custom:
+        for index, palette in enumerate(custom):
             self._add_palette_block(self.inner, palette["name"],
                                     palette["colors"], removable=True,
-                                    apply_alpha=True)
+                                    apply_alpha=True, palette_index=index)
         self._add_new_palette_button(self.inner)
         self._add_gradient_block(self.inner)
         # 滚轮事件不冒泡，创建完控件后统一递归绑定
@@ -368,7 +368,7 @@ class Panel:
     # ---------- 色板块 ----------
 
     def _add_palette_block(self, parent, name, colors, removable,
-                           apply_alpha=False):
+                           apply_alpha=False, palette_index=None):
         header = tk.Frame(parent, bg=BG)
         header.pack(fill="x", pady=(8, 3))
 
@@ -376,6 +376,13 @@ class Panel:
                  font=("Microsoft YaHei UI", 8)).pack(side="left")
 
         if removable:
+            remove = tk.Label(header, text="×", bg=BG, fg="#8A6A6A",
+                              font=("Consolas", 10), cursor="hand2", padx=3)
+            remove.pack(side="right")
+            remove.bind("<Button-1>",
+                        lambda e, n=name, i=palette_index, h=header:
+                        self._ask_delete_palette(n, i, h))
+
             add = tk.Label(header, text="+", bg=BG, fg=FG_ACCENT,
                            font=("Consolas", 10, "bold"), cursor="hand2", padx=4)
             add.pack(side="right")
@@ -428,6 +435,37 @@ class Panel:
         if removed:
             self._reload_palettes()
             self.status.config(text="已从色板移除 %s" % hex_value)
+
+    def _ask_delete_palette(self, name, index, header):
+        """
+        把色板标题行换成确认条。删除整个分组时里面的颜色一起消失，
+        属于不可逆操作，所以加一步确认，不用系统对话框。
+        """
+        for child in header.winfo_children():
+            child.destroy()
+
+        tk.Label(header, text="删除「%s」？" % name, bg=BG, fg="#E06C6C",
+                 font=("Microsoft YaHei UI", 8)).pack(side="left")
+
+        cancel = tk.Label(header, text="取消", bg=BG, fg=FG_SUB, padx=4,
+                          font=("Microsoft YaHei UI", 8), cursor="hand2")
+        cancel.pack(side="right")
+        cancel.bind("<Button-1>", lambda e: self._reload_palettes())
+
+        confirm = tk.Label(header, text="确定", bg="#8B3A3A", fg="#FFFFFF",
+                           padx=6, font=("Microsoft YaHei UI", 8),
+                           cursor="hand2")
+        confirm.pack(side="right", padx=(0, 4))
+        confirm.bind("<Button-1>",
+                     lambda e, n=name, i=index: self._delete_palette(n, i))
+
+    def _delete_palette(self, name, index):
+        deleted, _ = st.delete_palette_at(index)
+        self._reload_palettes()
+        if deleted:
+            self.status.config(text="已删除色板「%s」" % name)
+        else:
+            self.status.config(text="删除失败，色板可能已被改动")
 
     def _reload_palettes(self):
         """重绘整个滚动区，让自定义色板的增删立即反映出来。"""

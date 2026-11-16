@@ -186,6 +186,25 @@ def create_palette(name):
     return True, palettes
 
 
+def delete_palette_at(index):
+    """
+    按位置删除色板（连同里面的所有颜色）。
+    按索引而不是按名称，是因为配置文件允许出现同名色板（手动编辑时），
+    按名称过滤会把同名的几条一起删掉。
+    返回 (是否删除成功, 剩余色板列表)。
+    """
+    palettes = load_palettes()
+    try:
+        position = int(index)
+    except (TypeError, ValueError):
+        return False, palettes
+    if position < 0 or position >= len(palettes):
+        return False, palettes
+    del palettes[position]
+    save_palettes(palettes)
+    return True, palettes
+
+
 def add_color(hex_value, palette_name=DEFAULT_PALETTE_NAME):
     """
     把颜色加入指定色板，色板不存在则创建在末尾。
